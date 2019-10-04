@@ -1,0 +1,188 @@
+// Create the tile layer that will be the background of our map
+var lightmap = L.tileLayer("https://api.mapbox.com/styles/v1/mapbox/light-v9/tiles/256/{z}/{x}/{y}?access_token={accessToken}", {
+  attribution: "Map data &copy; <a href=\"http://openstreetmap.org\">OpenStreetMap</a> contributors, <a href=\"http://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA</a>, Imagery © <a href=\"http://mapbox.com\">Mapbox</a>",
+  maxZoom: 18,
+  id: "mapbox.light",
+  accessToken: API_KEY
+});
+
+// Initialize all of the LayerGroups we'll be using
+var layers = {
+  zerotoOne: new L.LayerGroup(),
+  onetoTwo: new L.LayerGroup(),
+  twotoThree: new L.LayerGroup(),
+  threetoFour: new L.LayerGroup(),
+  fourtoFive: new L.LayerGroup(),
+  fivePlus: new L.LayerGroup()
+};
+
+// Create the map with our layers
+var map = L.map("map", {
+  center: [37.09, -95.71],
+  zoom: 5,
+  layers: [
+    layers.zerotoOne,
+    layers.onetoTwo,
+    layers.twotoThree,
+    layers.threetoFour,
+    layers.fourtoFive,
+    layers.fivePlus
+  ]
+});
+
+// Add our 'lightmap' tile layer to the map
+lightmap.addTo(map);
+
+// Create an overlays object to add to the layer control
+var overlays = {
+  "0-1": layers.zerotoOne,
+  "1-2": layers.onetoTwo,
+  "2-3": layers.twotoThree,
+  "3-4": layers.threetoFour,
+  "4-5": layers.fourtoFive,
+  "5+": layers.fivePlus
+};
+
+// Create a control for our layers, add our overlay layers to it
+L.control.layers(null, overlays).addTo(map);
+
+// Create a control for our layers, add our overlay layers to it
+L.control.layers(null, overlays).addTo(map);
+
+// Create a legend to display information about our map
+var info = L.control({
+  position: "bottomright"
+});
+
+// When the layer control is added, insert a div with the class of "legend"
+info.onAdd = function () {
+  var div = L.DomUtil.create("div", "legend"),
+    grades = [0, 1, 2, 3, 4, 5, 5],
+    labels = [];
+  return div;
+};
+// Add the info legend to the map
+info.addTo(map);
+
+// Initialize an object containing icons for each layer group
+var icons = {
+  zerotoOne: L.circle({
+    fillOpacity: 0.75,
+    color: "black",
+    fillColor: "green"
+  }),
+  onetoTwo: L.circle({
+    fillOpacity: 0.75,
+    color: "black",
+    fillColor: "yellow"
+  }),
+  twotoThree: L.circle({
+    fillOpacity: 0.75,
+    color: "black",
+    fillColor: "orange"
+  }),
+  threetoFour: L.circle({
+    fillOpacity: 0.75,
+    color: "black",
+    fillColor: "red"
+  }),
+  fourtoFive: L.circle({
+    fillOpacity: 0.75,
+    color: "black",
+    fillColor: "purple"
+  }),
+  fivePlus: L.circle({
+    fillOpacity: 0.75,
+    color: "black",
+    fillColor: "blue"
+  })
+};
+
+// Perform an API call to the USGS Information endpoint
+d3.json("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson", function (response) {
+
+  // Pull the "features" property off of response.data
+  var features = response.features;
+  console.log(features);
+
+
+  // Create an object to keep of the number of markers in each layer
+  var featureCount = {
+    zerotoOne: 0,
+    onetoTwo: 0,
+    twotoThree: 0,
+    threetoFour: 0,
+    fourtoFive: 0,
+    fivePlus: 0
+  };
+
+  // Initialize a stationStatusCode, which will be used as a key to access the appropriate layers, icons, and station count for layer group
+  var featureStatusCode;
+
+  // Loop through the stations (they're the same size and have partially matching data)
+  for (var i = 0; i < features.length; i++) {
+    var feature = features[i];
+    var fill = 0.75;
+    var c = "black";
+    var fc = "white";
+    // Create a new station object with properties of both station objects
+    var magnitude = feature.properties.mag;
+    // If a station is listed but not installed, it's coming soon
+    if (magnitude < 1) {
+      featureStatusCode = "zerotoOne";
+      fc = "green";
+
+    }
+    // If a station has no bikes available, it's empty
+    else if (magnitude >= 1 && magnitude < 2) {
+      featureStatusCode = "onetoTwo";
+      fc = "yellow";
+    }
+    // If a station is installed but isn't renting, it's out of order
+    else if (magnitude >= 2 && magnitude < 3) {
+      featureStatusCode = "twotoThree";
+      fc = "orange";
+    }
+    // If a station has less than 5 bikes, it's status is low
+    else if (magnitude >= 3 && magnitude < 4) {
+      featureStatusCode = "threetoFour";
+      fc = "red";
+    }
+    else if (magnitude >= 4 && magnitude < 5) {
+      featureStatusCode = "fourtoFive";
+      fc = "purple";
+    }
+    // Otherwise the station is normal
+    else {
+      featuresStatusCode = "fivePlus";
+      fc = "blue";
+    }
+
+    // Update the station count
+    //featureCount[featuresStatusCode]++;
+    // Create a new marker with the appropriate icon and coordinates
+    var newMarker = L.circle([feature.geometry.coordinates[1], feature.geometry.coordinates[0]], {
+      fillOpacity: 0.75,
+      color: fc,
+      fillColor: fc,
+      // Setting our circle's radius equal to the output of our markerSize function
+      // This will make our marker's size proportionate to its population
+     
+    });
+
+    newMarker.setRadius(500);
+
+    // Add the new marker to the appropriate layer
+    newMarker.addTo(map);
+
+    // Bind a popup to the marker that will  display on click. This will be rendered as HTML
+    newMarker.bindPopup("<h3>" + feature.properties.place + "</h3><hr><p>" + "</p>" + feature.properties.mag + "<hr><p>" + new Date(feature.properties.time) + "</p>");
+  }
+
+  // Call the updateLegend function, which will... update the legend!
+  //updateLegend(updatedAt, stationCount);
+});
+
+
+
+
